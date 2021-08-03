@@ -1,0 +1,8 @@
+#Formation parameters for determining the turtlebots' dynamic
+K: 1.0
+K_P: 15.0
+K_D: 10.0 #was 5.0
+FORCE_GAIN: 10.0
+MASS_BOT: 1.0 #was 1.0
+D: 2.5
+DELAY_TIME: 1.0
