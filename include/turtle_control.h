@@ -28,9 +28,12 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 //#include <tf2_eigen/tf2_eigen.h>
 
+// Gazebo
+#include <gazebo_msgs/ModelStates.h>
+#include <gazebo_msgs/ModelStates.h>
+
 // Eigen
 #include <eigen3/Eigen/Core>
-//#include <Eigen/Eigen>
 
 // CVXgen
 extern "C" {
@@ -56,6 +59,7 @@ class TurtleControl {
 			void optiTb1Callback(const geometry_msgs::PoseStamped& msg);
 			void optiTb2Callback(const geometry_msgs::PoseStamped& msg);
 			void optiTb3Callback(const geometry_msgs::PoseStamped& msg);
+			void gazeboObsCallback(const gazebo_msgs::ModelStates& msg);
 
 
 			// Functions
@@ -63,6 +67,7 @@ class TurtleControl {
 			void computeTotalForce();
 			void computeVelocities();
 			void computePowers();
+			void computeObsForce();
 			Eigen::Vector4d optimizationProblem(Eigen::Vector4d v, Eigen::Vector4d F, double T, double Pin, double Pout);
 			Eigen::VectorXd singleTankOptProblem(Eigen::VectorXd v, Eigen::VectorXd F, double T);
 			void computeTankEnergy();
@@ -70,6 +75,7 @@ class TurtleControl {
 			void writeToFiles();
 			void saturateSpeed();
 			double quaternionToRPY(geometry_msgs::Quaternion q);
+			Eigen::Vector2d calculateForcesObs(double x_tb, double y_tb, double x_obs, double y_obs);
 
 		private:
 
@@ -86,6 +92,7 @@ class TurtleControl {
 			ros::Subscriber opti_tb1_sub_;
 			ros::Subscriber opti_tb2_sub_;
 			ros::Subscriber opti_tb3_sub_;
+			ros::Subscriber gazebo_obs_sub_;
 			
 			// Publisher
 			ros::Publisher vel_tb1_pub_;
@@ -136,6 +143,16 @@ class TurtleControl {
 			double FORCE_GAIN;
 			double MASS_BOT; // was 1.0
 			double D;
+			double SCALING_FACTOR;
+			double MAX_FORCE;
+
+			// Obstacles repulsive forces
+			Eigen::Vector2d F_cyl1_1;
+			Eigen::Vector2d F_cyl1_2;
+			Eigen::Vector2d F_cyl1_3;
+			Eigen::Vector2d F_cyl2_1;
+			Eigen::Vector2d F_cyl2_2;
+			Eigen::Vector2d F_cyl2_3;
 
 			// Position messages
 			geometry_msgs::Pose pose_tb1;
@@ -153,7 +170,10 @@ class TurtleControl {
 			std::vector<double> yaw_tb1_del_;
 			std::vector<double> yaw_tb2_del_;
 			std::vector<double> yaw_tb3_del_;
-
+			geometry_msgs::Pose cyl1_pose_;
+			geometry_msgs::Pose cyl2_pose_;
+			double D_MAX_;
+			double K_OBS_;
 
 			// Velocity messages
 			geometry_msgs::Twist twist_tb1;
@@ -197,8 +217,6 @@ class TurtleControl {
 			// TF variables
 			tf2_ros::Buffer* tfBuffer;
 			tf2_ros::TransformListener* tf2_listener;
-
-			// CBF variables
 			
 			// Tank parameters
     		float tank_state_[3];
@@ -206,9 +224,9 @@ class TurtleControl {
 			float single_tank_state;
 			float single_tank_energy;
     		double xt_dot_[3];
-			const float TANK_INITIAL_VALUE = 30; //! HIGH = 40 LOW = 25
-    		const float TANK_MAX_VALUE = 100;
-    		const float TANK_MIN_VALUE = 5;
+			float TANK_INITIAL_VALUE = 30; //! HIGH = 40 LOW = 25
+    		float TANK_MAX_VALUE = 100;
+    		float TANK_MIN_VALUE = 5;
     		double sum_y2_;
 			double channel_energy_;
 			double stored_energy_;
@@ -219,7 +237,9 @@ class TurtleControl {
 			std::ofstream pos_file_;
 			std::ofstream vel_file_;
 			std::ofstream btn_file_;
+			std::ofstream master_file_;
             double start_time_;
+			geometry_msgs::Pose master_pose_;
 
 };
 

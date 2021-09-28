@@ -17,18 +17,16 @@ TurtleControl::TurtleControl(){
     opti_tb1_sub_ = nh_.subscribe("vrpn_client_node/turtle2/pose", 1, &TurtleControl::optiTb1Callback, this); //! CHECK THE ORDER!
     opti_tb2_sub_ = nh_.subscribe("vrpn_client_node/turtle0/pose", 1, &TurtleControl::optiTb2Callback, this);
     opti_tb3_sub_ = nh_.subscribe("vrpn_client_node/turtle1/pose", 1, &TurtleControl::optiTb3Callback, this);
+    gazebo_obs_sub_ = nh_.subscribe("/gazebo/model_states", 1, &TurtleControl::gazeboObsCallback, this);
 
     // Publishers
-    vel_tb1_pub_ = nh_.advertise<geometry_msgs::Twist>("/turtle5/cmd_vel" ,1); //! CHECK THE ORDER!
-    vel_tb2_pub_ = nh_.advertise<geometry_msgs::Twist>("/turtle3/cmd_vel" ,1);
-    vel_tb3_pub_ = nh_.advertise<geometry_msgs::Twist>("/turtle4/cmd_vel" ,1);
+    // vel_tb1_pub_ = nh_.advertise<geometry_msgs::Twist>("/turtle5/cmd_vel" ,1); //! CHECK THE ORDER!
+    // vel_tb2_pub_ = nh_.advertise<geometry_msgs::Twist>("/turtle3/cmd_vel" ,1);
+    // vel_tb3_pub_ = nh_.advertise<geometry_msgs::Twist>("/turtle4/cmd_vel" ,1);
+    vel_tb1_pub_ = nh_.advertise<geometry_msgs::Twist>("/tb3_0/cmd_vel" ,1); //! CHECK THE ORDER!
+    vel_tb2_pub_ = nh_.advertise<geometry_msgs::Twist>("/tb3_1/cmd_vel" ,1);
+    vel_tb3_pub_ = nh_.advertise<geometry_msgs::Twist>("/tb3_2/cmd_vel" ,1);
     force_feed_pub_ = nh_.advertise<geometry_msgs::WrenchStamped>("/fdo6/wrench_cmd", 1);
-
-    // Tank init
-    for(int i = 0; i < 3; i++){
-        tank_energy_[i] = TANK_INITIAL_VALUE;
-        tank_state_[i] = sqrt(2 * tank_energy_[i]);
-    }
 
     // Force init
     F_tot_tb1.setZero();
@@ -47,12 +45,22 @@ TurtleControl::TurtleControl(){
     nh_.getParam("MASS_BOT", MASS_BOT);
     nh_.getParam("D", D);
     nh_.getParam("DELAY_TIME", time_delay_sec);
+    nh_.getParam("SINGLE_TANK_", SINGLE_TANK_);
+    nh_.getParam("DELAYED_INPUTS_", DELAYED_INPUTS_);
+    nh_.getParam("NO_TANK_", NO_TANK_);
+    nh_.getParam("TANK_INITIAL_VALUE", TANK_INITIAL_VALUE);
+    nh_.getParam("TANK_MAX_VALUE", TANK_MAX_VALUE);
+    nh_.getParam("TANK_MIN_VALUE", TANK_MIN_VALUE);
+    nh_.getParam("D_MAX_", D_MAX_);
+    nh_.getParam("K_OBS_", K_OBS_);
+    nh_.getParam("SCALING_FACTOR", SCALING_FACTOR);
+    nh_.getParam("MAX_FORCE", MAX_FORCE);
 
-    //!DEBUG
-    K_P = 90.0; // was 30.0
-    K_D = 1.0; // was 1.0
-    D = 2.0; // was 2.0
-    MASS_BOT = 1.0;
+    // Tank init
+    for(int i = 0; i < 3; i++){
+        tank_energy_[i] = TANK_INITIAL_VALUE;
+        tank_state_[i] = sqrt(2 * tank_energy_[i]);
+    }
 
     // Delay window
     time_delay_sec = 0.0; //200ms delay in the communication channel
@@ -66,24 +74,28 @@ TurtleControl::TurtleControl(){
 
     // Output to file
     std::stringstream file_path;
-    file_path << "/home/federico/Documents/Experiments/TRO-20/Simulations/Exp1/tank.txt";
+    file_path << "/home/federico/MATLAB_ws/T-RO21/Experiments/Exp1/tank.txt";
     tank_file_.open(file_path.str());
 
     std::stringstream file_path2;
-    file_path2 << "/home/federico/Documents/Experiments/TRO-20/Simulations/Exp1/force.txt";
+    file_path2 << "/home/federico/MATLAB_ws/T-RO21/Experiments/Exp1/force.txt";
     force_file_.open(file_path2.str());
 
     std::stringstream file_path3;
-    file_path3 << "/home/federico/Documents/Experiments/TRO-20/Simulations/Exp1/pos.txt";
+    file_path3 << "/home/federico/MATLAB_ws/T-RO21/Experiments/Exp1/pos.txt";
     pos_file_.open(file_path3.str());
 
     std::stringstream file_path4;
-    file_path4 << "/home/federico/Documents/Experiments/TRO-20/Simulations/Exp1/vel.txt";
+    file_path4 << "/home/federico/MATLAB_ws/T-RO21/Experiments/Exp1/vel.txt";
     vel_file_.open(file_path4.str());
 
     std::stringstream file_path5;
-    file_path5 << "/home/federico/Documents/Experiments/TRO-20/Simulations/Exp1/btn.txt";
+    file_path5 << "/home/federico/MATLAB_ws/T-RO21/Experiments/Exp1/btn.txt";
     btn_file_.open(file_path5.str());
+
+    std::stringstream file_path6;
+    file_path6 << "/home/federico/MATLAB_ws/T-RO21/Experiments/Exp1/master.txt";
+    master_file_.open(file_path6.str());
 
     start_time_ = ros::Time::now().toSec();
 
@@ -98,14 +110,13 @@ TurtleControl::TurtleControl(){
     first_cycle_ = true;
 
     // Mode selection
-    SINGLE_TANK_ = true;
-    DELAYED_INPUTS_ = false;
-    NO_TANK_ = true;
 
     if(SINGLE_TANK_){
         single_tank_energy = TANK_INITIAL_VALUE;
         single_tank_state = sqrt(2 * single_tank_energy);
     }
+
+    ros::Duration(1.0).sleep();
 
 }
 
@@ -145,18 +156,40 @@ void TurtleControl::forceCallback(const geometry_msgs::WrenchStamped& msg){
     // ? DIRECT FORCE MSG FROM OMEGA?
 }
 
+void TurtleControl::gazeboObsCallback(const gazebo_msgs::ModelStates& msg){
+    std::string cyl1_name = "unit_cylinder";
+    std::string cyl2_name = "unit_cylinder_0";
+
+    for (int i = 0; i < msg.name.size(); i++)
+    {
+        if (msg.name[i] == cyl1_name)
+        {
+            cyl1_pose_ = msg.pose[i];
+        }
+
+        if (msg.name[i] == cyl2_name)
+        {
+            cyl2_pose_ = msg.pose[i];
+        }
+        
+    }
+    
+}
+
 void TurtleControl::omegaCallback(const geometry_msgs::PoseStamped& msg){
 
     //! DEBUG
     FORCE_GAIN = 40.0; // Was 50.0
 
+    master_pose_ = msg.pose;
+
     double delta_x = msg.pose.position.x;
     double delta_y = msg.pose.position.y;
 
     f_cont.force.x = - FORCE_GAIN * (delta_x / 0.05);
-    // f_cont.force.y = - (FORCE_GAIN / 5)* (delta_y / 0.1);
+    f_cont.force.y = - (FORCE_GAIN / 2)* (delta_y / 0.1);
     // f_cont.force.x = 0.0;
-    f_cont.force.y = 0.0;
+    // f_cont.force.y = 0.0;
 
     // ROS_INFO_STREAM("F master: " << f_cont);
 
@@ -183,6 +216,8 @@ void TurtleControl::odomTb1Callback(const nav_msgs::Odometry& odom){
 
     yaw_tb1 = quaternionToRPY(pose_tb1.orientation);
 
+    pose_tb1_real = pose_tb1;
+
 }
 
 void TurtleControl::odomTb2Callback(const nav_msgs::Odometry& odom){
@@ -191,6 +226,8 @@ void TurtleControl::odomTb2Callback(const nav_msgs::Odometry& odom){
     twist_tb2 = odom.twist.twist;
 
     yaw_tb2 = quaternionToRPY(pose_tb2.orientation);
+
+    pose_tb2_real = pose_tb2;
 }
 
 void TurtleControl::odomTb3Callback(const nav_msgs::Odometry& odom){
@@ -199,6 +236,9 @@ void TurtleControl::odomTb3Callback(const nav_msgs::Odometry& odom){
     twist_tb3 = odom.twist.twist;
 
     yaw_tb3 = quaternionToRPY(pose_tb3.orientation);
+
+    pose_tb3_real = pose_tb3;
+
 }
 
 void TurtleControl::optiTb1Callback(const geometry_msgs::PoseStamped& msg){
@@ -360,6 +400,39 @@ void TurtleControl::computeForceInteraction(){
 
 }
 
+void TurtleControl::computeObsForce(){
+
+    // ROS_INFO_STREAM("CYL 1 POSE: \n" <<  cyl1_pose_.position);
+    // ROS_INFO_STREAM("CYL 2 POSE: \n" <<  cyl2_pose_.position);
+
+    F_cyl1_1 = calculateForcesObs(pose_tb1.position.x, pose_tb1.position.y, cyl1_pose_.position.x, cyl1_pose_.position.y);
+    F_cyl1_2 = calculateForcesObs(pose_tb2.position.x, pose_tb2.position.y, cyl1_pose_.position.x, cyl1_pose_.position.y);
+    F_cyl1_3 = calculateForcesObs(pose_tb3.position.x, pose_tb3.position.y, cyl1_pose_.position.x, cyl1_pose_.position.y);
+    F_cyl2_1 = calculateForcesObs(pose_tb1.position.x, pose_tb1.position.y, cyl2_pose_.position.x, cyl2_pose_.position.y);
+    F_cyl2_2 = calculateForcesObs(pose_tb2.position.x, pose_tb2.position.y, cyl2_pose_.position.x, cyl2_pose_.position.y);
+    F_cyl2_3 = calculateForcesObs(pose_tb3.position.x, pose_tb3.position.y, cyl2_pose_.position.x, cyl2_pose_.position.y);
+
+}
+
+Eigen::Vector2d TurtleControl::calculateForcesObs(double x_tb, double y_tb, double x_obs, double y_obs){
+    Eigen::Vector2d F;
+    double dist;
+
+    dist = sqrt(pow(x_tb - x_obs,2) + pow(y_tb - y_obs,2));
+
+    if (dist < D_MAX_)
+    {
+        F(0) =  K_OBS_ * 1 / (x_tb - x_obs);
+        F(1) =  K_OBS_ * 1 / (y_tb - y_obs);
+    }
+    else
+    {
+        F.setZero();
+    }
+
+    return F;
+    
+}
 
 void TurtleControl::computeVelocities(){
 
@@ -447,6 +520,49 @@ void TurtleControl::computeVelocities(){
     vel_tb3[0] +=  acc_tb3[0] * cycle_time;
     vel_tb3[1] +=  acc_tb3[1] * cycle_time;
     
+}
+
+void TurtleControl::computeTotalForce(){
+
+    // Store the values of the passive forces coming from the optimizer
+    F_pass_12 = {Fc_tb1[0], Fc_tb1[2]};
+    F_pass_13 = {Fc_tb1[1], Fc_tb1[3]};
+    F_pass_21 = {Fc_tb2[0], Fc_tb2[2]};
+    F_pass_23 = {Fc_tb2[1], Fc_tb2[3]};
+    F_pass_31 = {Fc_tb3[0], Fc_tb3[2]};
+    F_pass_32 = {Fc_tb3[1], Fc_tb3[3]};
+
+    //Summing the total interaction force coming from the optimizer
+    Eigen::Vector2d Fc_tot1, Fc_tot2, Fc_tot3;
+    Fc_tot1[0] = Fc_tb1[0] + Fc_tb1[2];
+    Fc_tot1[1] = Fc_tb1[1] + Fc_tb1[3];
+
+    Fc_tot2[0] = Fc_tb2[0] + Fc_tb2[2];
+    Fc_tot2[1] = Fc_tb2[1] + Fc_tb2[3];
+
+    Fc_tot3[0] = Fc_tb3[0] + Fc_tb3[2];
+    Fc_tot3[1] = Fc_tb3[1] + Fc_tb3[3];
+
+    // Compute the final overall force, including a damping term
+    F_tot_tb1[0] = f_cont.force.x + Fc_tot1[0] - D * vel_tb1[0];
+    F_tot_tb1[1] = f_cont.force.y + Fc_tot1[1] - D * vel_tb1[1];
+
+    F_tot_tb2[0] = Fc_tot2[0] - D * vel_tb2[0];
+    F_tot_tb2[1] = Fc_tot2[1] - D * vel_tb2[1];
+
+    F_tot_tb3[0] = Fc_tot3[0] - D * vel_tb3[0];
+    F_tot_tb3[1] = Fc_tot3[1] - D * vel_tb3[1];
+
+    // Add the forces due to the obstacle repulsive potential
+    F_tot_tb1[0] += (F_cyl1_1[0] + F_cyl2_1[0]);
+    F_tot_tb1[1] += (F_cyl1_1[1] + F_cyl2_1[1]);
+
+    F_tot_tb2[0] += (F_cyl1_2[0] + F_cyl2_2[0]);
+    F_tot_tb2[1] += (F_cyl1_2[1] + F_cyl2_2[1]);
+
+    F_tot_tb3[0] += (F_cyl1_3[0] + F_cyl2_3[0]);
+    F_tot_tb3[1] += (F_cyl1_3[1] + F_cyl2_3[1]);
+
 }
 
 void TurtleControl::computePowers(){
@@ -568,38 +684,7 @@ Eigen::VectorXd TurtleControl::singleTankOptProblem(Eigen::VectorXd v, Eigen::Ve
     return Fc;
 }
 
-void TurtleControl::computeTotalForce(){
 
-    // Store the values of the passive forces coming from the optimizer
-    F_pass_12 = {Fc_tb1[0], Fc_tb1[2]};
-    F_pass_13 = {Fc_tb1[1], Fc_tb1[3]};
-    F_pass_21 = {Fc_tb2[0], Fc_tb2[2]};
-    F_pass_23 = {Fc_tb2[1], Fc_tb2[3]};
-    F_pass_31 = {Fc_tb3[0], Fc_tb3[2]};
-    F_pass_32 = {Fc_tb3[1], Fc_tb3[3]};
-
-    //Summing the total interaction force coming from the optimizer
-    Eigen::Vector2d Fc_tot1, Fc_tot2, Fc_tot3; 
-    Fc_tot1[0] = Fc_tb1[0] + Fc_tb1[2];
-    Fc_tot1[1] = Fc_tb1[1] + Fc_tb1[3];
-
-    Fc_tot2[0] = Fc_tb2[0] + Fc_tb2[2];
-    Fc_tot2[1] = Fc_tb2[1] + Fc_tb2[3];
-
-    Fc_tot3[0] = Fc_tb3[0] + Fc_tb3[2];
-    Fc_tot3[1] = Fc_tb3[1] + Fc_tb3[3];
-
-    // Compute the final overall force, including a damping term
-    F_tot_tb1[0] = f_cont.force.x + Fc_tot1[0] - D * vel_tb1[0]; 
-    F_tot_tb1[1] = f_cont.force.y + Fc_tot1[1] - D * vel_tb1[1];
-
-    F_tot_tb2[0] = Fc_tot2[0] - D * vel_tb2[0];
-    F_tot_tb2[1] = Fc_tot2[1] - D * vel_tb2[1];
-
-    F_tot_tb3[0] = Fc_tot3[0] - D * vel_tb3[0];
-    F_tot_tb3[1] = Fc_tot3[1] - D * vel_tb3[1];
-
-}
 
 void TurtleControl::computeTankEnergy(){
 
@@ -755,11 +840,18 @@ void::TurtleControl::writeToFiles(){
     
     btn_file_ << std::endl;
 
+    master_file_ << ros::Time::now().toSec() - start_time_;
+
+    master_file_ << " " << master_pose_.position.x << " " << master_pose_.position.y << " " << master_pose_.position.z;
+
+    master_file_ << std::endl; 
+
 }
 
 void TurtleControl::spin(){
 
     computeForceInteraction();
+    computeObsForce();
     computeVelocities();
     computeTankEnergy();
     computeIOSLF();
@@ -770,9 +862,9 @@ void TurtleControl::spin(){
     geometry_msgs::Twist cmd_vel_2;
     geometry_msgs::Twist cmd_vel_3;
 
-    cmd_vel_1.linear.x = - v_tb1; //! ATM for some reason turtle5 motion along x is inverted WTF
-    // cmd_vel_1.angular.z = omega_tb1; //!DEBUG
-    cmd_vel_1.angular.z = 0.0;
+    // cmd_vel_1.linear.x = - v_tb1; //! ATM for some reason turtle5 motion along x is inverted WTF
+    cmd_vel_1.linear.x = v_tb1;
+    cmd_vel_1.angular.z = omega_tb1; //!DEBUG
 
     cmd_vel_2.linear.x = v_tb2;
     cmd_vel_2.angular.z = omega_tb2;
@@ -818,13 +910,30 @@ void TurtleControl::spin(){
     
     first_cycle_ = false;
 
-    // Publish the force feedback to the Omega master
+    // Compute the force feedback to the Omega master
     geometry_msgs::WrenchStamped force_feed;
-    double SCALING_FACTOR = 30;
 
-    force_feed.wrench.force.x = (F_pass_12[0] + F_pass_13[0]) / SCALING_FACTOR;
-    force_feed.wrench.force.y = (F_pass_12[1] + F_pass_13[1]) / SCALING_FACTOR;
+    double scaling = 1 / SCALING_FACTOR;
 
-    // force_feed_pub_.publish(force_feed);
+    force_feed.wrench.force.x = (F_pass_12[0] + F_pass_13[0] + F_cyl1_1[0] + F_cyl2_1[0]) * scaling;
+    force_feed.wrench.force.y = (F_pass_12[1] + F_pass_13[1] + F_cyl1_1[1] + F_cyl2_1[1]) * scaling;
+
+    // Saturate force commands
+    if(force_feed.wrench.force.x >= MAX_FORCE)
+        force_feed.wrench.force.x = MAX_FORCE;
+    else if (force_feed.wrench.force.x <= -MAX_FORCE)
+        force_feed.wrench.force.x = -MAX_FORCE;
+
+    if(force_feed.wrench.force.y >= MAX_FORCE)
+        force_feed.wrench.force.y = MAX_FORCE;
+    else if (force_feed.wrench.force.y <= -MAX_FORCE)
+        force_feed.wrench.force.y = -MAX_FORCE;
+
+    ROS_INFO_STREAM("Force msg: \n" << force_feed);
+    // ROS_INFO_STREAM("SCALING_FACTOR: " << SCALING_FACTOR);
+    // ROS_INFO_STREAM("MAX_FORCE: " << MAX_FORCE);
+
+    // Publish force commands
+    force_feed_pub_.publish(force_feed);
 
 }
