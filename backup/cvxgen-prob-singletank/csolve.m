@@ -4,19 +4,17 @@
 %
 % solves the convex optimization problem
 %
-%   minimize(quad_form(Fc - Fd, eye(4)))
+%   minimize(quad_form(Fc - Fd, eye(12)))
 %   subject to
-%     -tau*(Fc'*dotx + P_in - P_out) >=  - T0 + varepsilon
+%     -tau*Fc'*dotx >=  - T0 + varepsilon
 %
 % with variables
-%       Fc   4 x 1
+%       Fc  12 x 1
 %
 % and parameters
-%       Fd   4 x 1
-%     P_in   1 x 1
-%    P_out   1 x 1
+%       Fd  12 x 1
 %       T0   1 x 1
-%     dotx   4 x 1
+%     dotx  12 x 1
 %      tau   1 x 1
 % varepsilon   1 x 1
 %
@@ -29,7 +27,7 @@
 %
 % Specify params.Fd, ..., params.varepsilon, then run
 %   [vars, status] = csolve(params, settings)
-% Produced by CVXGEN, 2021-10-01 12:33:21 -0400.
+% Produced by CVXGEN, 2020-12-16 04:35:30 -0500.
 % CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 % The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 % CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial

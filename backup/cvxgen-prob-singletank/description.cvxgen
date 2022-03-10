@@ -1,4 +1,4 @@
-# Produced by CVXGEN, 2021-10-01 12:33:21 -0400.
+# Produced by CVXGEN, 2020-12-16 04:35:30 -0500.
 # CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 # The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 # CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -8,18 +8,18 @@
 # Description: A description of the CVXGEN problem.
 
 dimensions
-  n = 4
+  n = 12
 
 end
 
 parameters
   dotx (n)
   Fd (n)
+  A (n)
+  B
   tau
   T0
   varepsilon
-  P_in
-  P_out
 
 end
 
@@ -33,6 +33,6 @@ minimize
 
 subject to
 
-  -tau * (Fc' * dotx + P_in - P_out) >= -T0 + varepsilon
+  -tau * Fc' * dotx >= -T0 + varepsilon
 
 end

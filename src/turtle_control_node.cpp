@@ -7,12 +7,12 @@ void mySigintHandler(int sig){
 	ros::NodeHandle nh;
 
 	ros::Publisher tb1_pub, tb2_pub, tb3_pub, wrench_pub;
-	// tb1_pub = nh.advertise<geometry_msgs::Twist>("/turtle3/cmd_vel" ,1);
-	// tb2_pub = nh.advertise<geometry_msgs::Twist>("/turtle4/cmd_vel" ,1);
-	// tb3_pub = nh.advertise<geometry_msgs::Twist>("/turtle5/cmd_vel" ,1);
-	tb1_pub = nh.advertise<geometry_msgs::Twist>("/tb3_0/cmd_vel" ,1);
-	tb2_pub = nh.advertise<geometry_msgs::Twist>("/tb3_1/cmd_vel" ,1);
-	tb3_pub = nh.advertise<geometry_msgs::Twist>("/tb3_2/cmd_vel" ,1);
+	// tb1_pub = nh.advertise<geometry_msgs::Twist>("turtle1/cmd_vel" ,1);
+	// tb2_pub = nh.advertise<geometry_msgs::Twist>("turtle2/cmd_vel" ,1);
+	// tb3_pub = nh.advertise<geometry_msgs::Twist>("turtle3/cmd_vel" ,1);
+	tb1_pub = nh.advertise<geometry_msgs::Twist>("/tb3_0/cmd_vel", 1);
+	tb2_pub = nh.advertise<geometry_msgs::Twist>("/tb3_1/cmd_vel", 1);
+	tb3_pub = nh.advertise<geometry_msgs::Twist>("/tb3_2/cmd_vel", 1);
 	
 	wrench_pub = nh.advertise<geometry_msgs::WrenchStamped>("/fdo6/wrench_cmd", 1);
 

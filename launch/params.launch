@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
 <!-- Formation params file -->
-  <arg name="FORMATION_PARAMS_FILE" default="$(find shared_autonomy)/config/formation_params.yaml" />
+  <arg name="FORMATION_PARAMS_FILE" default="$(find shared_autonomy)/cfg/formation_params.yaml" />
   <rosparam file="$(arg FORMATION_PARAMS_FILE)" command="load"/>
 </launch>

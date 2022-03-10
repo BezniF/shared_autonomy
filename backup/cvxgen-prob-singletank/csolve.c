@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2021-10-01 12:33:21 -0400.  */
+/* Produced by CVXGEN, 2020-12-16 04:35:30 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -74,8 +74,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.Fd.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("Fd must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 12) && (mxGetN(xm) == 1))) {
+      printf("Fd must be size (12,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -93,65 +93,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.Fd;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
-        *dest++ = *src++;
-      valid_vars++;
-    }
-  }
-  this_var_errors = 0;
-  xm = mxGetField(prhs[0], 0, "P_in");
-  if (xm == NULL) {
-    printf("could not find params.P_in.\n");
-  } else {
-    if (!((mxGetM(xm) == 1) && (mxGetN(xm) == 1))) {
-      printf("P_in must be size (1,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
-      this_var_errors++;
-    }
-    if (mxIsComplex(xm)) {
-      printf("parameter P_in must be real.\n");
-      this_var_errors++;
-    }
-    if (!mxIsClass(xm, "double")) {
-      printf("parameter P_in must be a full matrix of doubles.\n");
-      this_var_errors++;
-    }
-    if (mxIsSparse(xm)) {
-      printf("parameter P_in must be a full matrix.\n");
-      this_var_errors++;
-    }
-    if (this_var_errors == 0) {
-      dest = params.P_in;
-      src = mxGetPr(xm);
-      for (i = 0; i < 1; i++)
-        *dest++ = *src++;
-      valid_vars++;
-    }
-  }
-  this_var_errors = 0;
-  xm = mxGetField(prhs[0], 0, "P_out");
-  if (xm == NULL) {
-    printf("could not find params.P_out.\n");
-  } else {
-    if (!((mxGetM(xm) == 1) && (mxGetN(xm) == 1))) {
-      printf("P_out must be size (1,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
-      this_var_errors++;
-    }
-    if (mxIsComplex(xm)) {
-      printf("parameter P_out must be real.\n");
-      this_var_errors++;
-    }
-    if (!mxIsClass(xm, "double")) {
-      printf("parameter P_out must be a full matrix of doubles.\n");
-      this_var_errors++;
-    }
-    if (mxIsSparse(xm)) {
-      printf("parameter P_out must be a full matrix.\n");
-      this_var_errors++;
-    }
-    if (this_var_errors == 0) {
-      dest = params.P_out;
-      src = mxGetPr(xm);
-      for (i = 0; i < 1; i++)
+      for (i = 0; i < 12; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -190,8 +132,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.dotx.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("dotx must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 12) && (mxGetN(xm) == 1))) {
+      printf("dotx must be size (12,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -209,7 +151,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.dotx;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 12; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -272,22 +214,18 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       valid_vars++;
     }
   }
-  if (valid_vars != 7) {
-    printf("Error: %d parameters are invalid.\n", 7 - valid_vars);
+  if (valid_vars != 5) {
+    printf("Error: %d parameters are invalid.\n", 5 - valid_vars);
     mexErrMsgTxt("invalid parameters found.");
   }
   if (prepare_for_c) {
     printf("settings.prepare_for_c == 1. thus, outputting for C.\n");
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 12; i++)
       printf("  params.Fd[%d] = %.6g;\n", i, params.Fd[i]);
     for (i = 0; i < 1; i++)
       printf("  params.tau[%d] = %.6g;\n", i, params.tau[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 12; i++)
       printf("  params.dotx[%d] = %.6g;\n", i, params.dotx[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.P_in[%d] = %.6g;\n", i, params.P_in[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.P_out[%d] = %.6g;\n", i, params.P_out[i]);
     for (i = 0; i < 1; i++)
       printf("  params.T0[%d] = %.6g;\n", i, params.T0[i]);
     for (i = 0; i < 1; i++)
@@ -315,11 +253,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   *mxGetPr(xm) = work.converged;
   /* Extract variable values. */
   plhs[0] = mxCreateStructArray(1, dims1x1of1, num_var_names, var_names);
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(12, 1, mxREAL);
   mxSetField(plhs[0], 0, "Fc", xm);
   dest = mxGetPr(xm);
   src = vars.Fc;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 12; i++) {
     *dest++ = *src++;
   }
 }

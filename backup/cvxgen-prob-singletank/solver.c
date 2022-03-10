@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2021-10-01 12:33:22 -0400.  */
+/* Produced by CVXGEN, 2020-12-16 04:35:30 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -29,9 +29,9 @@ void set_defaults(void) {
   settings.kkt_reg = 1e-7;
 }
 void setup_pointers(void) {
-  work.y = work.x + 4;
-  work.s = work.x + 4;
-  work.z = work.x + 5;
+  work.y = work.x + 12;
+  work.s = work.x + 12;
+  work.z = work.x + 13;
   vars.Fc = work.x + 0;
 }
 void setup_indexing(void) {
@@ -39,7 +39,7 @@ void setup_indexing(void) {
 }
 void set_start(void) {
   int i;
-  for (i = 0; i < 4; i++)
+  for (i = 0; i < 12; i++)
     work.x[i] = 0;
   for (i = 0; i < 0; i++)
     work.y[i] = 0;
@@ -54,10 +54,10 @@ double eval_objv(void) {
   /* Borrow space in work.rhs. */
   multbyP(work.rhs, work.x);
   objv = 0;
-  for (i = 0; i < 4; i++)
+  for (i = 0; i < 12; i++)
     objv += work.x[i]*work.rhs[i];
   objv *= 0.5;
-  for (i = 0; i < 4; i++)
+  for (i = 0; i < 12; i++)
     objv += work.q[i]*work.x[i];
   objv += work.quad_759852212224[0];
   return objv;
@@ -66,16 +66,16 @@ void fillrhs_aff(void) {
   int i;
   double *r1, *r2, *r3, *r4;
   r1 = work.rhs;
-  r2 = work.rhs + 4;
-  r3 = work.rhs + 5;
-  r4 = work.rhs + 6;
+  r2 = work.rhs + 12;
+  r3 = work.rhs + 13;
+  r4 = work.rhs + 14;
   /* r1 = -A^Ty - G^Tz - Px - q. */
   multbymAT(r1, work.y);
   multbymGT(work.buffer, work.z);
-  for (i = 0; i < 4; i++)
+  for (i = 0; i < 12; i++)
     r1[i] += work.buffer[i];
   multbyP(work.buffer, work.x);
-  for (i = 0; i < 4; i++)
+  for (i = 0; i < 12; i++)
     r1[i] -= work.buffer[i] + work.q[i];
   /* r2 = -z. */
   for (i = 0; i < 1; i++)
@@ -98,9 +98,9 @@ void fillrhs_cc(void) {
   double sigma;
   double smu;
   double minval;
-  r2 = work.rhs + 4;
-  ds_aff = work.lhs_aff + 4;
-  dz_aff = work.lhs_aff + 5;
+  r2 = work.rhs + 12;
+  ds_aff = work.lhs_aff + 12;
+  dz_aff = work.lhs_aff + 13;
   mu = 0;
   for (i = 0; i < 1; i++)
     mu += work.s[i]*work.z[i];
@@ -128,9 +128,9 @@ void fillrhs_cc(void) {
   mu *= 1.0;
   smu = sigma*mu;
   /* Fill-in the rhs. */
-  for (i = 0; i < 4; i++)
+  for (i = 0; i < 12; i++)
     work.rhs[i] = 0;
-  for (i = 5; i < 6; i++)
+  for (i = 13; i < 14; i++)
     work.rhs[i] = 0;
   for (i = 0; i < 1; i++)
     r2[i] = work.s_inv[i]*(smu - ds_aff[i]*dz_aff[i]);
@@ -143,7 +143,7 @@ void refine(double *target, double *var) {
   for (j = 0; j < settings.refine_steps; j++) {
     norm2 = 0;
     matrix_multiply(residual, var);
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < 14; i++) {
       residual[i] = residual[i] - target[i];
       norm2 += residual[i]*residual[i];
     }
@@ -158,7 +158,7 @@ void refine(double *target, double *var) {
     /* Solve to find new_var = KKT \ (target - A*var). */
     ldl_solve(residual, new_var);
     /* Update var += new_var, or var += KKT \ (target - A*var). */
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < 14; i++) {
       var[i] -= new_var[i];
     }
   }
@@ -168,7 +168,7 @@ void refine(double *target, double *var) {
     /* it's expensive. */
     norm2 = 0;
     matrix_multiply(residual, var);
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < 14; i++) {
       residual[i] = residual[i] - target[i];
       norm2 += residual[i]*residual[i];
     }
@@ -226,11 +226,11 @@ void better_start(void) {
   ldl_solve(work.rhs, work.lhs_aff);
   /* Don't do any refinement for now. Precision doesn't matter too much. */
   x = work.lhs_aff;
-  s = work.lhs_aff + 4;
-  z = work.lhs_aff + 5;
-  y = work.lhs_aff + 6;
+  s = work.lhs_aff + 12;
+  z = work.lhs_aff + 13;
+  y = work.lhs_aff + 14;
   /* Just set x and y as is. */
-  for (i = 0; i < 4; i++)
+  for (i = 0; i < 12; i++)
     work.x[i] = x[i];
   for (i = 0; i < 0; i++)
     work.y[i] = y[i];
@@ -268,10 +268,10 @@ void fillrhs_start(void) {
   int i;
   double *r1, *r2, *r3, *r4;
   r1 = work.rhs;
-  r2 = work.rhs + 4;
-  r3 = work.rhs + 5;
-  r4 = work.rhs + 6;
-  for (i = 0; i < 4; i++)
+  r2 = work.rhs + 12;
+  r3 = work.rhs + 13;
+  r4 = work.rhs + 14;
+  for (i = 0; i < 12; i++)
     r1[i] = -work.q[i];
   for (i = 0; i < 1; i++)
     r2[i] = 0;
@@ -317,13 +317,13 @@ long solve(void) {
     ldl_solve(work.rhs, work.lhs_cc);
     refine(work.rhs, work.lhs_cc);
     /* Add the two together and store in aff. */
-    for (i = 0; i < 6; i++)
+    for (i = 0; i < 14; i++)
       work.lhs_aff[i] += work.lhs_cc[i];
     /* Rename aff to reflect its new meaning. */
     dx = work.lhs_aff;
-    ds = work.lhs_aff + 4;
-    dz = work.lhs_aff + 5;
-    dy = work.lhs_aff + 6;
+    ds = work.lhs_aff + 12;
+    dz = work.lhs_aff + 13;
+    dy = work.lhs_aff + 14;
     /* Find min(min(ds./s), min(dz./z)). */
     minval = 0;
     for (i = 0; i < 1; i++)
@@ -338,7 +338,7 @@ long solve(void) {
     else
       alpha = -0.99/minval;
     /* Update the primal and dual variables. */
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 12; i++)
       work.x[i] += alpha*dx[i];
     for (i = 0; i < 1; i++)
       work.s[i] += alpha*ds[i];

@@ -2,11 +2,11 @@
 <launch>
 
  <!-- Formation params file -->
-  <arg name="FORMATION_PARAMS_FILE" default="$(find shared_autonomy)/config/formation_params.yaml" />
-  <rosparam file="$(arg FORMATION_PARAMS_FILE)" command="load"/>
+  <!--<arg name="FORMATION_PARAMS_FILE" default="$(find shared_autonomy)/config/formation_params.yaml" />
+  <rosparam file="$(arg FORMATION_PARAMS_FILE)" command="load"/>-->
 
  <!-- Optitrack parameters -->
- <arg name="server" default="192.168.90.3"/> <!-- for connecting via wifi to turtle router -->
+ <arg name="server" default="192.168.2.50"/> <!-- for connecting via wifi to turtle router -->
 
   <node pkg="vrpn_client_ros" type="vrpn_client_node" name="vrpn_client_node" output="screen">
     <rosparam subst_value="true">

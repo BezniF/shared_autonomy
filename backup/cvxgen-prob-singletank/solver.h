@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2021-10-01 12:33:22 -0400.  */
+/* Produced by CVXGEN, 2020-12-16 04:35:30 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -8,7 +8,6 @@
 /* Description: Header file with relevant definitions. */
 #ifndef SOLVER_H
 #define SOLVER_H
-
 /* Uncomment the next line to remove all library dependencies. */
 /*#define ZERO_LIBRARY_MODE */
 #ifdef MATLAB_MEX_FILE
@@ -29,37 +28,35 @@
 #define pm(A, m, n) printmatrix(#A, A, m, n, 1)
 #endif
 typedef struct Params_t {
-  double Fd[4];
+  double Fd[12];
   double tau[1];
-  double dotx[4];
-  double P_in[1];
-  double P_out[1];
+  double dotx[12];
   double T0[1];
   double varepsilon[1];
 } Params;
 typedef struct Vars_t {
-  double *Fc; /* 4 rows. */
+  double *Fc; /* 12 rows. */
 } Vars;
 typedef struct Workspace_t {
   double h[1];
   double s_inv[1];
   double s_inv_z[1];
   double *b;
-  double q[4];
-  double rhs[6];
-  double x[6];
+  double q[12];
+  double rhs[14];
+  double x[14];
   double *s;
   double *z;
   double *y;
-  double lhs_aff[6];
-  double lhs_cc[6];
-  double buffer[6];
-  double buffer2[6];
-  double KKT[11];
-  double L[5];
-  double d[6];
-  double v[6];
-  double d_inv[6];
+  double lhs_aff[14];
+  double lhs_cc[14];
+  double buffer[14];
+  double buffer2[14];
+  double KKT[27];
+  double L[13];
+  double d[14];
+  double v[14];
+  double d_inv[14];
   double gap;
   double optval;
   double ineq_resid_squared;

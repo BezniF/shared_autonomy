@@ -1,0 +1,21 @@
+#Formation parameters for determining the turtlebots' dynamic
+K: 1.0
+K_P: 20.0 # was 20.0
+K_D: 10.0 # was 10.0
+SIM_X_GAIN: 50.0
+SIM_Y_GAIN: 5.0
+FORCE_GAIN: 5.0
+MASS_BOT: 1.0
+D: 1.5 # was 1.5
+DELAY_TIME: 0.0
+SIM: true
+SINGLE_TANK_: false
+DELAYED_INPUTS_: false
+NO_TANK_ : true
+TANK_INITIAL_VALUE : 40
+TANK_MAX_VALUE : 1000
+TANK_MIN_VALUE : 5
+D_MAX_: 0.9
+K_OBS_ : 100.0
+SCALING_FACTOR : 10.0
+MAX_FORCE: 4.0

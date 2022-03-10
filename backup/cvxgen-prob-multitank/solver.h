@@ -8,7 +8,6 @@
 /* Description: Header file with relevant definitions. */
 #ifndef SOLVER_H
 #define SOLVER_H
-
 /* Uncomment the next line to remove all library dependencies. */
 /*#define ZERO_LIBRARY_MODE */
 #ifdef MATLAB_MEX_FILE

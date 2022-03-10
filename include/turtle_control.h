@@ -28,6 +28,10 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 //#include <tf2_eigen/tf2_eigen.h>
 
+// dynamic reconfiguration
+#include <shared_autonomy/SharedAutonomyConfig.h>
+#include <dynamic_reconfigure/server.h>
+
 // Gazebo
 #include <gazebo_msgs/ModelStates.h>
 #include <gazebo_msgs/ModelStates.h>
@@ -60,6 +64,9 @@ class TurtleControl {
 			void optiTb2Callback(const geometry_msgs::PoseStamped& msg);
 			void optiTb3Callback(const geometry_msgs::PoseStamped& msg);
 			void gazeboObsCallback(const gazebo_msgs::ModelStates& msg);
+			void ellipseCallback(const geometry_msgs::PoseStamped& msg);
+			void objectCallback(const geometry_msgs::PoseStamped& msg);
+			void setControllerParameters(shared_autonomy::SharedAutonomyConfig &config, uint32_t level);
 
 
 			// Functions
@@ -76,6 +83,7 @@ class TurtleControl {
 			void saturateSpeed();
 			double quaternionToRPY(geometry_msgs::Quaternion q);
 			Eigen::Vector2d calculateForcesObs(double x_tb, double y_tb, double x_obs, double y_obs);
+			void simulationsCmd();
 
 		private:
 
@@ -93,6 +101,8 @@ class TurtleControl {
 			ros::Subscriber opti_tb2_sub_;
 			ros::Subscriber opti_tb3_sub_;
 			ros::Subscriber gazebo_obs_sub_;
+			ros::Subscriber ellipse_sub_;
+			ros::Subscriber object_sub_;
 			
 			// Publisher
 			ros::Publisher vel_tb1_pub_;
@@ -107,6 +117,10 @@ class TurtleControl {
 			bool SINGLE_TANK_;
 			bool DELAYED_INPUTS_;
 			bool NO_TANK_;
+			bool SIM_;
+
+			// Sim variables
+			double sim_x_gain_, sim_y_gain_;
 
 			// Force message
 			geometry_msgs::Wrench f_cont;
