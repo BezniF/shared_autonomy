@@ -78,12 +78,16 @@ class TurtleControl {
 			Eigen::Vector4d optimizationProblem(Eigen::Vector4d v, Eigen::Vector4d F, double T, double Pin, double Pout);
 			Eigen::VectorXd singleTankOptProblem(Eigen::VectorXd v, Eigen::VectorXd F, double T);
 			void computeTankEnergy();
+			void compareApproximations();
 			void computeIOSLF();
 			void writeToFiles();
 			void saturateSpeed();
 			double quaternionToRPY(geometry_msgs::Quaternion q);
 			Eigen::Vector2d calculateForcesObs(double x_tb, double y_tb, double x_obs, double y_obs);
 			void simulationsCmd();
+
+			// Comparative Methods
+			void useDampingInjection();
 
 		private:
 
@@ -109,6 +113,9 @@ class TurtleControl {
 			ros::Publisher vel_tb2_pub_;
 			ros::Publisher vel_tb3_pub_;
 			ros::Publisher force_feed_pub_;
+
+			// Dynamic reconfigure
+			dynamic_reconfigure::Server<shared_autonomy::SharedAutonomyConfig> srv;
 			
 			// Initial variables
 			nav_msgs::Odometry initial_base_odom_;
@@ -118,9 +125,11 @@ class TurtleControl {
 			bool DELAYED_INPUTS_;
 			bool NO_TANK_;
 			bool SIM_;
+			bool DAMPING_INJ_;
 
 			// Sim variables
 			double sim_x_gain_, sim_y_gain_;
+			bool first_target_, second_target_;
 
 			// Force message
 			geometry_msgs::Wrench f_cont;
@@ -148,15 +157,16 @@ class TurtleControl {
 			Eigen::Vector4d Fc_tb1;
 			Eigen::Vector4d Fc_tb2;
 			Eigen::Vector4d Fc_tb3;
-			double des_dist_12[3] = {0.75, -0.75, 0.0};
-			double des_dist_13[3] = {0.75, 0.75, 0.0};
-			double des_dist_23[3] = {0.0, 1.5, 0.0};
+			double des_dist_12[3] = {1.0, -1.0, 0.0};
+			double des_dist_13[3] = {1.0, 1.0, 0.0};
+			double des_dist_23[3] = {0.0, 2.0, 0.0};
 			double K;
 			double K_P;
 			double K_D; // was 5.0
 			double FORCE_GAIN;
 			double MASS_BOT; // was 1.0
 			double D;
+			double B_;
 			double SCALING_FACTOR;
 			double MAX_FORCE;
 
@@ -248,12 +258,18 @@ class TurtleControl {
 			// Output to file
 			std::ofstream tank_file_;
 			std::ofstream force_file_;
+			std::ofstream comparison_file_;
 			std::ofstream pos_file_;
 			std::ofstream vel_file_;
 			std::ofstream btn_file_;
 			std::ofstream master_file_;
-            double start_time_;
+      double start_time_;
 			geometry_msgs::Pose master_pose_;
+			Eigen::Vector4d F1_pre_opt_, F2_pre_opt_, F3_pre_opt_;
+			Eigen::Vector4d F1_post_opt_, F2_post_opt_, F3_post_opt_;
+			Eigen::Vector4d F1_compare_, F2_compare_, F3_compare_;
+			double approx_norm_;
+			double formation_error_;
 
 };
 

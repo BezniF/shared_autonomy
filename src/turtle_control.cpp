@@ -22,7 +22,6 @@ TurtleControl::TurtleControl(){
     object_sub_ = nh_.subscribe("vrpn_client_node/object1/pose", 1, &TurtleControl::objectCallback, this);
 
     // Dynamic Reconfigure
-    dynamic_reconfigure::Server<shared_autonomy::SharedAutonomyConfig> srv;
     dynamic_reconfigure::Server<shared_autonomy::SharedAutonomyConfig>::CallbackType f;
     f = boost::bind(&TurtleControl::setControllerParameters, this, _1, _2);
     srv.setCallback(f);
@@ -62,8 +61,10 @@ TurtleControl::TurtleControl(){
     nh_.getParam("FORCE_GAIN", FORCE_GAIN);
     nh_.getParam("MASS_BOT", MASS_BOT);
     nh_.getParam("D", D);
+    nh_.getParam("B_INJ", B_);
     nh_.getParam("DELAY_TIME", time_delay_sec);
     nh_.getParam("SINGLE_TANK_", SINGLE_TANK_);
+    nh_.getParam("DAMPING_INJ", DAMPING_INJ_);
     nh_.getParam("DELAYED_INPUTS_", DELAYED_INPUTS_);
     nh_.getParam("NO_TANK_", NO_TANK_);
     nh_.getParam("TANK_INITIAL_VALUE", TANK_INITIAL_VALUE);
@@ -88,13 +89,19 @@ TurtleControl::TurtleControl(){
     if(DELAY_WINDOW < 1)
         DELAY_WINDOW = 1;
 
-    ROS_INFO_STREAM("DELAY WINDOW: " << DELAY_WINDOW);
+    // ROS_INFO_STREAM("DELAY WINDOW: " << DELAY_WINDOW);
     channel_energy_ = 0.0;
 
     // Output to file
     std::string file_path;
 
     file_path = "/home/federico/MATLAB_ws/T-RO21/Simulations";
+
+    // if (DAMPING_INJ_)
+    // {
+    //     file_path = file_path + "/INJ";
+    // }
+    
     
     tank_file_.open(file_path + "/tank.txt");
 
@@ -107,6 +114,15 @@ TurtleControl::TurtleControl(){
     btn_file_.open(file_path + "/btn.txt");
 
     master_file_.open(file_path + "/master.txt");
+
+    if (DAMPING_INJ_)
+    {
+        comparison_file_.open(file_path + "/COMPARE_2/" + std::to_string(int(TANK_INITIAL_VALUE)) + "/compare_inj.txt");
+    }
+    else
+    {
+        comparison_file_.open(file_path + "/COMPARE_2/" + std::to_string(int(TANK_INITIAL_VALUE)) + "/compare.txt");
+    }
 
     pressed_ = false;
 
@@ -124,7 +140,14 @@ TurtleControl::TurtleControl(){
         single_tank_state = sqrt(2 * single_tank_energy);
     }
 
-    ros::Duration(0.5).sleep();
+    // Init automatic open-close in simulation
+    if (SIM_)
+    {
+        first_target_ = false;
+        second_target_ = false;
+    }
+
+    ros::Duration(1.0).sleep();
 
     start_time_ = ros::Time::now().toSec();
 
@@ -233,32 +256,35 @@ void TurtleControl::buttonCallback(const std_msgs::Bool& msg){
 void TurtleControl::odomTb1Callback(const nav_msgs::Odometry& odom){
 
     pose_tb1 = odom.pose.pose;
-    // twist_tb1 = odom.twist.twist; //!!!!!
+    twist_tb1 = odom.twist.twist; //!!!!!
 
     yaw_tb1 = quaternionToRPY(pose_tb1.orientation);
 
     pose_tb1_real = pose_tb1;
+    twist_tb1_real = twist_tb1;
 
 }
 
 void TurtleControl::odomTb2Callback(const nav_msgs::Odometry& odom){
 
     pose_tb2 = odom.pose.pose;
-    // twist_tb2 = odom.twist.twist; //!!!!!
+    twist_tb2 = odom.twist.twist; //!!!!!
 
     yaw_tb2 = quaternionToRPY(pose_tb2.orientation);
 
     pose_tb2_real = pose_tb2;
+    twist_tb2_real = twist_tb2;
 }
 
 void TurtleControl::odomTb3Callback(const nav_msgs::Odometry& odom){
 
     pose_tb3 = odom.pose.pose;
-    // twist_tb3 = odom.twist.twist; //!!!!!
+    twist_tb3 = odom.twist.twist; //!!!!!
 
     yaw_tb3 = quaternionToRPY(pose_tb3.orientation);
 
     pose_tb3_real = pose_tb3;
+    twist_tb3_real = twist_tb3;
 
 }
 
@@ -338,7 +364,35 @@ double TurtleControl::quaternionToRPY(geometry_msgs::Quaternion q){
 }
 
 void TurtleControl::setControllerParameters(shared_autonomy::SharedAutonomyConfig &config, uint32_t level){
-    ROS_INFO_STREAM("Params: \n" << config.SIM);
+    
+    // SIM_ = config.SIM;
+    // DAMPING_INJ_ = config.DAMPING_INJ_;
+    // SINGLE_TANK_ = config.SINGLE_TANK_;
+    // DELAYED_INPUTS_ = config.DELAYED_INPUTS_;
+    // NO_TANK_ = config.NO_TANK_;
+    
+    // if(config.reset_tank)
+    // {
+    //     for (auto n : tank_energy_)
+    //     {
+    //         n = config.TANK_INITIAL_VALUE;
+    //     }
+        
+    //     ROS_WARN("Tank has been reset!");
+    //     config.reset_tank = false;
+    // }
+
+    // if (config.reset_impendace)
+    // {
+    //     K_P = config.K_P;
+    //     K_D = config.K_D;
+    //     K = config.K;
+    //     sim_x_gain_ = config.SIM_X_GAIN;
+    //     sim_y_gain_ = config.SIM_Y_GAIN;
+    //     MASS_BOT = config.MASS_BOT;
+    //     D = config.D;
+    // }
+    
 }
 
 void TurtleControl::simulationsCmd(){
@@ -347,6 +401,19 @@ void TurtleControl::simulationsCmd(){
     {
         f_cont.force.x = sim_x_gain_;
         f_cont.force.y = -sim_y_gain_ * pose_tb1.position.y;
+
+        if (pose_tb1.position.x > 2.0 && !first_target_)
+        {
+            K = 0.33;
+            first_target_ = true;
+        }
+
+        if (pose_tb1.position.x > 4.0 && !second_target_)
+        {
+            K = 1.0;
+            second_target_ = true;
+        }
+        
     }
     
 }
@@ -376,27 +443,34 @@ void TurtleControl::computeForceInteraction(){
     F_int_32[1] = K_P * (pose_tb2.position.y - pose_tb3_real.position.y - K * des_dist_23[1]);
 
     // ULTIMATE DEBUGGING
-    /*ROS_INFO_STREAM("*****************************");
-    ROS_INFO_STREAM("Pose TB1 :" << pose_tb1);
-    ROS_INFO_STREAM("Pose TB2 :" << pose_tb2);
-    ROS_INFO_STREAM("Pose TB3 :" << pose_tb3);
-    ROS_INFO_STREAM("Pose TB1 REAL:" << pose_tb1_real);
-    ROS_INFO_STREAM("Pose TB2 REAL:" << pose_tb2_real);
-    ROS_INFO_STREAM("Pose TB3 REAL:" << pose_tb3_real);
-    ROS_INFO_STREAM("*****************************");
-    ROS_INFO_STREAM("F_spring 12x: " << F_int_12[0]);
-    ROS_INFO_STREAM("F_spring 12y: " << F_int_12[1]);
-    ROS_INFO_STREAM("F_spring 13x: " << F_int_13[0]);
-    ROS_INFO_STREAM("F_spring 13y: " << F_int_13[1]);
-    ROS_INFO_STREAM("F_spring 21x: " << F_int_21[0]);
-    ROS_INFO_STREAM("F_spring 21y: " << F_int_21[1]);
-    ROS_INFO_STREAM("F_spring 23x: " << F_int_23[0]);
-    ROS_INFO_STREAM("F_spring 23y: " << F_int_23[1]);
-    ROS_INFO_STREAM("F_spring 31x: " << F_int_31[0]);
-    ROS_INFO_STREAM("F_spring 31y: " << F_int_31[1]);
-    ROS_INFO_STREAM("F_spring 32x: " << F_int_32[0]);
-    ROS_INFO_STREAM("F_spring 32y: " << F_int_32[1]);
-    ROS_INFO_STREAM("*****************************");*/
+    // ROS_INFO_STREAM("*****************************");
+    // ROS_INFO_STREAM("Pose TB1 :" << pose_tb1);
+    // ROS_INFO_STREAM("Pose TB2 :" << pose_tb2);
+    // ROS_INFO_STREAM("Pose TB3 :" << pose_tb3);
+    // ROS_INFO_STREAM("Pose TB1 REAL:" << pose_tb1_real);
+    // ROS_INFO_STREAM("Pose TB2 REAL:" << pose_tb2_real);
+    // ROS_INFO_STREAM("Pose TB3 REAL:" << pose_tb3_real);
+    // ROS_INFO_STREAM("*****************************");
+    // ROS_INFO_STREAM("K_P: " << K_P);
+    // ROS_INFO_STREAM("K: " << K);
+    // ROS_INFO_STREAM("D12 X : " << des_dist_12[0]);
+    // ROS_INFO_STREAM("D12 Y : " << des_dist_12[1]);
+    // ROS_INFO_STREAM("D13 X : " << des_dist_13[0]);
+    // ROS_INFO_STREAM("D13 Y : " << des_dist_13[1]);
+    // ROS_INFO_STREAM("*****************************");
+    // ROS_INFO_STREAM("F_spring 12x: " << F_int_12[0]);
+    // ROS_INFO_STREAM("F_spring 12y: " << F_int_12[1]);
+    // ROS_INFO_STREAM("F_spring 13x: " << F_int_13[0]);
+    // ROS_INFO_STREAM("F_spring 13y: " << F_int_13[1]);
+    // ROS_INFO_STREAM("F_spring 21x: " << F_int_21[0]);
+    // ROS_INFO_STREAM("F_spring 21y: " << F_int_21[1]);
+    // ROS_INFO_STREAM("F_spring 23x: " << F_int_23[0]);
+    // ROS_INFO_STREAM("F_spring 23y: " << F_int_23[1]);
+    // ROS_INFO_STREAM("F_spring 31x: " << F_int_31[0]);
+    // ROS_INFO_STREAM("F_spring 31y: " << F_int_31[1]);
+    // ROS_INFO_STREAM("F_spring 32x: " << F_int_32[0]);
+    // ROS_INFO_STREAM("F_spring 32y: " << F_int_32[1]);
+    // ROS_INFO_STREAM("*****************************");
 
     // Add the damping term
     F_int_12[0] += K_D * (twist_tb2.linear.x*cos(yaw_tb2) - twist_tb1_real.linear.x*cos(yaw_tb1));
@@ -495,6 +569,8 @@ void TurtleControl::computeVelocities(){
     Eigen::Vector4d F2 = { F_int_21[0], F_int_21[1], F_int_23[0], F_int_23[1]};
     Eigen::Vector4d F3 = { F_int_31[0], F_int_31[1], F_int_32[0], F_int_32[1]};
 
+    // ROS_INFO_STREAM("F1: " << F1.transpose() << " F2: " << F2.transpose() << " F3: " << F3.transpose());
+
     v12 = vel_tb1 - vel_tb2;
     v13 = vel_tb1 - vel_tb3;
     v23 = vel_tb2 - vel_tb3;
@@ -505,12 +581,20 @@ void TurtleControl::computeVelocities(){
     Eigen::Vector4d dotx_2 = {-v12[0],-v12[1], v23[0], v23[1]};
     Eigen::Vector4d dotx_3 = {-v13[0],-v13[1],-v23[0],-v23[1]};
 
+    F1_pre_opt_ = F1;
+    F2_pre_opt_ = F2;
+    F3_pre_opt_ = F3;
+
     // Compute the optimal input for preserving passivity according to the currently selected mode
     if(!NO_TANK_){
         if(!SINGLE_TANK_){
-            Fc_tb1 = optimizationProblem(dotx_1, F1, tank_energy_[0], Pin_vec_tb1[0], Pout_tb1);
-            Fc_tb2 = optimizationProblem(dotx_2, F2, tank_energy_[1], Pin_vec_tb2[0], Pout_tb2);
-            Fc_tb3 = optimizationProblem(dotx_3, F3, tank_energy_[2], Pin_vec_tb3[0], Pout_tb3);
+            if(!DAMPING_INJ_)
+            {
+                Fc_tb1 = optimizationProblem(dotx_1, F1, tank_energy_[0], Pin_vec_tb1[0], Pout_tb1);
+                Fc_tb2 = optimizationProblem(dotx_2, F2, tank_energy_[1], Pin_vec_tb2[0], Pout_tb2);
+                Fc_tb3 = optimizationProblem(dotx_3, F3, tank_energy_[2], Pin_vec_tb3[0], Pout_tb3);
+            }
+            
         }
         else{
             Eigen::VectorXd F_st(12);
@@ -535,14 +619,14 @@ void TurtleControl::computeVelocities(){
         Fc_tb1 = F1;
         Fc_tb2 = F2;
         Fc_tb3 = F3;
-    }
+    }    
 
-    // ROS_INFO_STREAM("F1 AFTER opt: " << Fc_tb1);
+    F1_post_opt_ = Fc_tb1;
+    F2_post_opt_ = Fc_tb2;
+    F3_post_opt_ = Fc_tb3;
 
     computeTotalForce();
     
-    // ROS_INFO_STREAM("Force TB1: " << F_tot_tb1.transpose());
-
     // Apply the computed acceleration
     Eigen::Vector2d acc_tb1 = F_tot_tb1 / MASS_BOT;
     Eigen::Vector2d acc_tb2 = F_tot_tb2 / MASS_BOT;
@@ -561,7 +645,6 @@ void TurtleControl::computeVelocities(){
 
 void TurtleControl::computeTotalForce(){
 
-    //!!!!!!!!!!!!!!!!!!!!!!!!!
     F_pass_12 = {Fc_tb1[0], Fc_tb1[1]};
     F_pass_13 = {Fc_tb1[2], Fc_tb1[3]};
     F_pass_21 = {Fc_tb2[0], Fc_tb2[1]};
@@ -591,14 +674,14 @@ void TurtleControl::computeTotalForce(){
     F_tot_tb3[1] = Fc_tot3[1] - D * vel_tb3[1];
 
     // Add the forces due to the obstacle repulsive potential
-    F_tot_tb1[0] += (F_cyl1_1[0] + F_cyl2_1[0]);
-    F_tot_tb1[1] += (F_cyl1_1[1] + F_cyl2_1[1]);
+    // F_tot_tb1[0] += (F_cyl1_1[0] + F_cyl2_1[0]);
+    // F_tot_tb1[1] += (F_cyl1_1[1] + F_cyl2_1[1]);
 
-    F_tot_tb2[0] += (F_cyl1_2[0] + F_cyl2_2[0]);
-    F_tot_tb2[1] += (F_cyl1_2[1] + F_cyl2_2[1]);
+    // F_tot_tb2[0] += (F_cyl1_2[0] + F_cyl2_2[0]);
+    // F_tot_tb2[1] += (F_cyl1_2[1] + F_cyl2_2[1]);
 
-    F_tot_tb3[0] += (F_cyl1_3[0] + F_cyl2_3[0]);
-    F_tot_tb3[1] += (F_cyl1_3[1] + F_cyl2_3[1]);
+    // F_tot_tb3[0] += (F_cyl1_3[0] + F_cyl2_3[0]);
+    // F_tot_tb3[1] += (F_cyl1_3[1] + F_cyl2_3[1]);
 
 }
 
@@ -611,40 +694,42 @@ void TurtleControl::computePowers(){
     double Pin_tb2;
     double Pin_tb3;
 
-    if(tank_energy_[0] >= 3 * TANK_MIN_VALUE)
-        Pout_tb1 = P_EXCH;
-    else
-        Pout_tb1 = 0.0;
-    
-    if(tank_energy_[1] >= 3 * TANK_MIN_VALUE)
-        Pout_tb2 = P_EXCH;
-    else
-        Pout_tb2 = 0.0;
-    
-    if(tank_energy_[2] >= 3 * TANK_MIN_VALUE)
-        Pout_tb3 = P_EXCH;
-    else
-        Pout_tb3 = 0.0;
-    
-    Pin_tb1 = 0.5 * (Pout_tb2 + Pout_tb3);
-    Pin_tb2 = 0.5 * (Pout_tb1 + Pout_tb3);
-    Pin_tb3 = 0.5 * (Pout_tb1 + Pout_tb2);
+    if(!DAMPING_INJ_){
+        if(tank_energy_[0] >= TANK_MIN_VALUE + 1)
+            Pout_tb1 = P_EXCH;
+        else
+            Pout_tb1 = 0.0;
+        
+        if(tank_energy_[1] >= TANK_MIN_VALUE + 1)
+            Pout_tb2 = P_EXCH;
+        else
+            Pout_tb2 = 0.0;
+        
+        if(tank_energy_[2] >= TANK_MIN_VALUE + 1)
+            Pout_tb3 = P_EXCH;
+        else
+            Pout_tb3 = 0.0;
+        
+        Pin_tb1 = 0.5 * (Pout_tb2 + Pout_tb3);
+        Pin_tb2 = 0.5 * (Pout_tb1 + Pout_tb3);
+        Pin_tb3 = 0.5 * (Pout_tb1 + Pout_tb2);
 
-    Pin_vec_tb1.push_back(Pin_tb1);
-    Pin_vec_tb2.push_back(Pin_tb2);
-    Pin_vec_tb3.push_back(Pin_tb3);
+        Pin_vec_tb1.push_back(Pin_tb1);
+        Pin_vec_tb2.push_back(Pin_tb2);
+        Pin_vec_tb3.push_back(Pin_tb3);
 
-    Pin_vec_tb1.erase(Pin_vec_tb1.begin());
-    Pin_vec_tb2.erase(Pin_vec_tb2.begin());
-    Pin_vec_tb3.erase(Pin_vec_tb3.begin());
+        Pin_vec_tb1.erase(Pin_vec_tb1.begin());
+        Pin_vec_tb2.erase(Pin_vec_tb2.begin());
+        Pin_vec_tb3.erase(Pin_vec_tb3.begin());
 
-    // Compute the value of the energy stored in the communication channel at the current time
-    channel_energy_ = 0.0;
+        // Compute the value of the energy stored in the communication channel at the current time
+        channel_energy_ = 0.0;
 
-    for(int i= 1; i < DELAY_WINDOW; i++){
-        channel_energy_ += Pin_vec_tb1[i];
-        channel_energy_ += Pin_vec_tb2[i];
-        channel_energy_ += Pin_vec_tb3[i]; 
+        for(int i= 1; i < DELAY_WINDOW; i++){
+            channel_energy_ += Pin_vec_tb1[i];
+            channel_energy_ += Pin_vec_tb2[i];
+            channel_energy_ += Pin_vec_tb3[i]; 
+        }
     }
 }
 
@@ -755,6 +840,107 @@ void TurtleControl::computeTankEnergy(){
     
 }
 
+void TurtleControl::compareApproximations(){
+    // Compute approximation values
+    F1_compare_ = F1_pre_opt_ - F1_post_opt_;
+    F2_compare_ = F2_pre_opt_ - F2_post_opt_;
+    F3_compare_ = F3_pre_opt_ - F3_post_opt_;
+
+    approx_norm_ = F1_compare_.norm() + F2_compare_.norm() + F3_compare_.norm();
+
+    double err_12, err_13, err_23;
+
+    err_12 = sqrt(pow((pose_tb1.position.x - pose_tb2.position.x) - K * des_dist_12[0], 2) 
+             + pow((pose_tb1.position.y - pose_tb2.position.y) - K * des_dist_12[1], 2));
+
+    err_13 = sqrt(pow((pose_tb1.position.x - pose_tb3.position.x) - K * des_dist_13[0], 2) 
+             + pow((pose_tb1.position.y - pose_tb3.position.y) - K * des_dist_13[1], 2));
+
+    err_23 = sqrt(pow((pose_tb2.position.x - pose_tb3.position.x) - K * des_dist_23[0], 2) 
+             + pow((pose_tb2.position.y - pose_tb3.position.y) - K * des_dist_23[1], 2));
+
+    formation_error_ = err_12 + err_13 + err_23;
+}
+
+// !!!!!!!!!!@@@@@@@@@@@@@@@@@@@@@@@@!!!!!!!!!!!!!!!!!!!!!
+void TurtleControl::useDampingInjection(){
+    F_int_tb1[0] = f_int_1.force.x;
+    F_int_tb1[1] = f_int_1.force.y;
+    F_int_tb2[0] = f_int_2.force.x;
+    F_int_tb2[1] = f_int_2.force.y;
+    F_int_tb3[0] = f_int_3.force.x;
+    F_int_tb3[1] = f_int_3.force.y;
+
+    vel_tb1[0] = twist_tb1_real.linear.x * cos(yaw_tb1);
+    vel_tb1[1] = twist_tb1_real.linear.x * sin(yaw_tb1);
+
+    vel_tb2[0] = twist_tb2_real.linear.x * cos(yaw_tb2);
+    vel_tb2[1] = twist_tb2_real.linear.x * sin(yaw_tb2);
+
+    vel_tb3[0] = twist_tb3_real.linear.x * cos(yaw_tb3);
+    vel_tb3[1] = twist_tb3_real.linear.x * sin(yaw_tb3);
+
+    // Store variables in a suitable way for the optimization problem
+    Eigen::Vector4d F1 = { F_int_12[0], F_int_12[1], F_int_13[0], F_int_13[1]};
+    Eigen::Vector4d F2 = { F_int_21[0], F_int_21[1], F_int_23[0], F_int_23[1]};
+    Eigen::Vector4d F3 = { F_int_31[0], F_int_31[1], F_int_32[0], F_int_32[1]};
+
+    v12 = vel_tb1 - vel_tb2;
+    v13 = vel_tb1 - vel_tb3;
+    v23 = vel_tb2 - vel_tb3;
+
+    Eigen::Vector4d dotx_1 = { v12[0], v12[1], v13[0], v13[1]};    
+    Eigen::Vector4d dotx_2 = {-v12[0],-v12[1], v23[0], v23[1]};
+    Eigen::Vector4d dotx_3 = {-v13[0],-v13[1],-v23[0],-v23[1]};
+
+    F1_pre_opt_ = F1;
+    F2_pre_opt_ = F2;
+    F3_pre_opt_ = F3;
+
+    if(tank_energy_[0] <= TANK_MIN_VALUE){
+        Fc_tb1 = -B_ * dotx_1;
+        ROS_WARN("PORCODIO 1");
+    }
+    else
+        Fc_tb1 = F1;
+
+    if(tank_energy_[1] <= TANK_MIN_VALUE){
+        Fc_tb2 = -B_ * dotx_2;
+        ROS_WARN("PORCODIO 2");
+    }
+    else
+        Fc_tb2 = F2;
+
+    if(tank_energy_[2] <= TANK_MIN_VALUE){
+        Fc_tb3 = -B_ * dotx_3;
+        ROS_WARN("PORCODIO 3");
+    }
+    else
+        Fc_tb3 = F3;
+
+    computeTotalForce();
+
+    F1_post_opt_ = Fc_tb1;
+    F2_post_opt_ = Fc_tb2;
+    F3_post_opt_ = Fc_tb3;
+
+    // Apply the computed acceleration
+    Eigen::Vector2d acc_tb1 = F_tot_tb1 / MASS_BOT;
+    Eigen::Vector2d acc_tb2 = F_tot_tb2 / MASS_BOT;
+    Eigen::Vector2d acc_tb3 = F_tot_tb3 / MASS_BOT;
+
+    vel_tb1[0] +=  acc_tb1[0] * cycle_time;
+    vel_tb1[1] +=  acc_tb1[1] * cycle_time;
+
+    vel_tb2[0] +=  acc_tb2[0] * cycle_time;
+    vel_tb2[1] +=  acc_tb2[1] * cycle_time;
+
+    vel_tb3[0] +=  acc_tb3[0] * cycle_time;
+    vel_tb3[1] +=  acc_tb3[1] * cycle_time;
+
+}
+// !!!!!!!!!!@@@@@@@@@@@@@@@@@@@@@@@@!!!!!!!!!!!!!!!!!!!!!
+
 void TurtleControl::computeIOSLF(){
 
     // Utilize IO-SFL for computing v and omega
@@ -768,13 +954,15 @@ void TurtleControl::computeIOSLF(){
     omega_tb2 = -sin(yaw_tb2) * vel_tb2[0] / b + cos(yaw_tb2) * vel_tb2[1] / b;
     omega_tb3 = -sin(yaw_tb3) * vel_tb3[0] / b + cos(yaw_tb3) * vel_tb3[1] / b;
 
+    // ROS_INFO_STREAM("v_tb1: " << v_tb1 << " omega_tb1: " << omega_tb1);
+
 }
 
 void::TurtleControl::saturateSpeed(){
 
     //Saturating the speed of each turtlebot
-    double v_max = 0.1;
-    double omega_max = 0.5;
+    double v_max = 0.25;
+    double omega_max = 0.8;
 
     if(v_tb1 >= v_max)
         v_tb1 = v_max;
@@ -874,7 +1062,13 @@ void::TurtleControl::writeToFiles(){
 
     master_file_ << " " <<  (F_pass_12[0] + F_pass_13[0]) * scaling << " " << (F_pass_12[1] + F_pass_13[1]) * scaling;
 
-    master_file_ << std::endl; 
+    master_file_ << std::endl;
+
+    comparison_file_ << ros::Time::now().toSec() - start_time_;
+
+    comparison_file_ << " " << approx_norm_ << " " << formation_error_; 
+
+    comparison_file_ << std::endl;
 
 }
 
@@ -883,8 +1077,16 @@ void TurtleControl::spin(){
     simulationsCmd();
     computeForceInteraction();
     computeObsForce();
-    computeVelocities();
+
+    if(!DAMPING_INJ_){
+        computeVelocities();
+    }
+    else{
+        useDampingInjection();
+    }
+    
     computeTankEnergy();
+    compareApproximations();
     computeIOSLF();
     saturateSpeed();
     writeToFiles();

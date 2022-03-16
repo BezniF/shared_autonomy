@@ -3,4 +3,8 @@
 <!-- Formation params file -->
   <arg name="FORMATION_PARAMS_FILE" default="$(find shared_autonomy)/cfg/formation_params.yaml" />
   <rosparam file="$(arg FORMATION_PARAMS_FILE)" command="load"/>
+
+  <!-- ***** RQT ***** -->
+  <!-- <node name="rqt_reconfig" pkg="rqt_reconfigure" type="rqt_reconfigure" output="screen"/> -->
+
 </launch>
