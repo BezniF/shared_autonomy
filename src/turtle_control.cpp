@@ -96,12 +96,6 @@ TurtleControl::TurtleControl(){
     std::string file_path;
 
     file_path = "/home/federico/MATLAB_ws/T-RO21/Simulations";
-
-    // if (DAMPING_INJ_)
-    // {
-    //     file_path = file_path + "/INJ";
-    // }
-    
     
     tank_file_.open(file_path + "/tank.txt");
 
@@ -117,11 +111,11 @@ TurtleControl::TurtleControl(){
 
     if (DAMPING_INJ_)
     {
-        comparison_file_.open(file_path + "/COMPARE_2/" + std::to_string(int(TANK_INITIAL_VALUE)) + "/compare_inj.txt");
+        comparison_file_.open(file_path + "/COMPARE_3/" + std::to_string(int(TANK_INITIAL_VALUE)) + "/compare_inj.txt");
     }
     else
     {
-        comparison_file_.open(file_path + "/COMPARE_2/" + std::to_string(int(TANK_INITIAL_VALUE)) + "/compare.txt");
+        comparison_file_.open(file_path + "/COMPARE_3/" + std::to_string(int(TANK_INITIAL_VALUE)) + "/compare.txt");
     }
 
     pressed_ = false;
@@ -898,21 +892,21 @@ void TurtleControl::useDampingInjection(){
     F3_pre_opt_ = F3;
 
     if(tank_energy_[0] <= TANK_MIN_VALUE){
-        Fc_tb1 = -B_ * dotx_1;
+        Fc_tb1.setZero();
         ROS_WARN("PORCODIO 1");
     }
     else
         Fc_tb1 = F1;
 
     if(tank_energy_[1] <= TANK_MIN_VALUE){
-        Fc_tb2 = -B_ * dotx_2;
+        Fc_tb2.setZero();
         ROS_WARN("PORCODIO 2");
     }
     else
         Fc_tb2 = F2;
 
     if(tank_energy_[2] <= TANK_MIN_VALUE){
-        Fc_tb3 = -B_ * dotx_3;
+        Fc_tb3.setZero();
         ROS_WARN("PORCODIO 3");
     }
     else
@@ -937,6 +931,24 @@ void TurtleControl::useDampingInjection(){
 
     vel_tb3[0] +=  acc_tb3[0] * cycle_time;
     vel_tb3[1] +=  acc_tb3[1] * cycle_time;
+
+    // Update the tank using the energy from the damping
+    double P1 = F_pass_12.transpose()* v12;
+    P1 += F_pass_13.transpose() * v13;
+
+    double P2 = F_pass_21.transpose() * (-v12);
+    P2 += F_pass_23.transpose() * v23;
+
+    double P3 = F_pass_31.transpose() * (-v13);
+    P3 += F_pass_32.transpose() * (-v23);
+
+    tank_energy_[0] += cycle_time * (-P1);
+    tank_energy_[1] += cycle_time * (-P2);
+    tank_energy_[2] += cycle_time * (-P3);
+
+    tank_energy_[0] += cycle_time * D * vel_tb1.transpose() * vel_tb1;
+    tank_energy_[1] += cycle_time * D * vel_tb2.transpose() * vel_tb2;
+    tank_energy_[2] += cycle_time * D * vel_tb3.transpose() * vel_tb3;
 
 }
 // !!!!!!!!!!@@@@@@@@@@@@@@@@@@@@@@@@!!!!!!!!!!!!!!!!!!!!!
@@ -1080,12 +1092,12 @@ void TurtleControl::spin(){
 
     if(!DAMPING_INJ_){
         computeVelocities();
+        computeTankEnergy();
     }
     else{
         useDampingInjection();
     }
     
-    computeTankEnergy();
     compareApproximations();
     computeIOSLF();
     saturateSpeed();
@@ -1170,6 +1182,12 @@ void TurtleControl::spin(){
         force_feed.wrench.force.y = MAX_FORCE;
     else if (force_feed.wrench.force.y <= -MAX_FORCE)
         force_feed.wrench.force.y = -MAX_FORCE;
+
+    // if (SIM_ && pose_tb1.position.x >= 7.0)
+    // {
+    //     ros::shutdown;
+    // }
+    
 
     // ROS_INFO_STREAM("Force msg: \n" << force_feed);
 
